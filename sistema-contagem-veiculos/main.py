@@ -14,6 +14,7 @@ Data: 24/02/2026
 # ==============================================================================
 import sys
 import os
+import subprocess
 import faulthandler # CRÍTICO: Para debug de crashes (Exit code -1073740771)
 
 # Ativar faulthandler imediatamente (com tratamento para PyInstaller)
@@ -190,6 +191,7 @@ def main():
 
 if __name__ == '__main__':
     try:
+        subprocess.Popen([sys.executable, 'api.py'])
         main()
     except Exception as e:
         print(f"Erro não tratado: {e}")

@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SysMonit — Monitoramento de Veículos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* ── RESET & VARIÁVEIS ─────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #080c10;
+    --surface:   #0d1520;
+    --surface2:  #111d2e;
+    --border:    #1a2d44;
+    --accent:    #00d4ff;
+    --accent2:   #0077ff;
+    --green:     #00e676;
+    --orange:    #ff9800;
+    --red:       #ff3d57;
+    --text:      #e8f4ff;
+    --muted:     #4a6880;
+    --card-glow: rgba(0,212,255,0.06);
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    overflow-x: hidden;
+  }
+
+  /* ── GRID LAYOUT ───────────────────────────────────────────── */
+  .app {
+    display: grid;
+    grid-template-rows: 64px 1fr;
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ────────────────────────────────────────────────── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-icon {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+
+  .logo-text {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: var(--text);
+  }
+
+  .logo-text span { color: var(--accent); }
+
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: background .3s;
+  }
+  .dot.online  { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .dot.offline { background: var(--red);   box-shadow: 0 0 8px var(--red);   }
+
+  #status-text { transition: color .3s; }
+  #status-text.online  { color: var(--green); }
+  #status-text.offline { color: var(--red);   }
+
+  /* ── MAIN ──────────────────────────────────────────────────── */
+  main {
+    padding: 24px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  /* ── SEÇÃO TÍTULO ──────────────────────────────────────────── */
+  .section-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+
+  /* ── CARDS DE TOTAIS ───────────────────────────────────────── */
+  .totais-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px;
+  }
+
+  .total-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color .25s, transform .2s;
+  }
+
+  .total-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+  }
+
+  .total-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--card-glow);
+    opacity: 0;
+    transition: opacity .3s;
+  }
+  .total-card:hover::before { opacity: 1; }
+
+  .total-card .icon {
+    font-size: 26px;
+    margin-bottom: 10px;
+  }
+
+  .total-card .label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  .total-card .value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+    transition: all .4s;
+  }
+
+  .total-card .sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  .total-card.destaque .value { color: var(--text); font-size: 42px; }
+  .total-card.destaque { border-color: rgba(0,212,255,0.3); }
+
+  /* ── CÂMERAS ───────────────────────────────────────────────── */
+  #cameras-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .camera-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    animation: fadeIn .4s ease;
+  }
+
+  @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+
+  .camera-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+
+  .camera-header .cam-id {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    background: var(--border);
+    color: var(--accent);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+
+  .camera-header .cam-url {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+  }
+
+  .camera-header .cam-total {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+
+  .camera-body {
+    padding: 16px 20px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+  }
+
+  .cat-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+  }
+
+  .cat-row .cat-icon { font-size: 22px; }
+
+  .cat-row .cat-info { flex: 1; }
+  .cat-row .cat-name {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .cat-row .cat-counts {
+    display: flex;
+    gap: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+  }
+
+  .badge {
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 11px;
+  }
+  .badge-ida   { background: rgba(0,230,118,.15); color: var(--green);  }
+  .badge-volta { background: rgba(0,119,255,.15); color: #60aaff;        }
+
+  .cat-total {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+    min-width: 40px;
+    text-align: right;
+  }
+
+  /* ── BARRA DE PROGRESSO ────────────────────────────────────── */
+  .progress-bar-wrap {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-top: 6px;
+    overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+    border-radius: 2px;
+    transition: width .6s ease;
+  }
+
+  /* ── HISTÓRICO ─────────────────────────────────────────────── */
+  .historico-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  .hist-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+
+  .hist-header span {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  #hist-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    background: var(--border);
+    color: var(--muted);
+    padding: 3px 8px;
+    border-radius: 4px;
+  }
+
+  #historico-list {
+    max-height: 280px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .hist-item {
+    display: grid;
+    grid-template-columns: 160px 1fr 80px 80px;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    transition: background .2s;
+    animation: slideIn .25s ease;
+  }
+
+  @keyframes slideIn { from { opacity:0; transform:translateX(-8px); } to { opacity:1; transform:none; } }
+
+  .hist-item:hover { background: var(--surface2); }
+  .hist-item:last-child { border-bottom: none; }
+
+  .hist-time { color: var(--muted); }
+  .hist-cat  { color: var(--text); font-weight: 600; }
+  .hist-dir  { }
+  .hist-cam  { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ── TIMESTAMP ─────────────────────────────────────────────── */
+  #last-update {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* ── VAZIO ─────────────────────────────────────────────────── */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    color: var(--muted);
+    gap: 12px;
+    font-size: 14px;
+  }
+  .empty-state .big { font-size: 40px; }
+
+  /* ── PULSE ANIMATION ───────────────────────────────────────── */
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  .pulsing { animation: pulse 1.5s infinite; }
+
+  /* ── RESPONSIVO ────────────────────────────────────────────── */
+  @media (max-width: 600px) {
+    main { padding: 16px; }
+    .hist-item { grid-template-columns: 1fr 1fr; font-size: 11px; }
+    .hist-cam { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── HEADER ─────────────────────────────────────────────── -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">📡</div>
+      <div class="logo-text">Sys<span>Monit</span></div>
+    </div>
+    <div class="status-bar">
+      <span id="last-update">Aguardando...</span>
+      <div class="dot" id="status-dot"></div>
+      <span id="status-text">Conectando...</span>
+    </div>
+  </header>
+
+  <!-- ── MAIN ───────────────────────────────────────────────── -->
+  <main>
+
+    <!-- TOTAIS GLOBAIS -->
+    <section>
+      <div class="section-title">Resumo Geral</div>
+      <div class="totais-grid">
+        <div class="total-card destaque">
+          <div class="icon">🚗</div>
+          <div class="label">Total Veículos</div>
+          <div class="value" id="t-geral">—</div>
+          <div class="sub">todas as câmeras</div>
+        </div>
+        <div class="total-card">
+          <div class="icon">🚘</div>
+          <div class="label">Carros</div>
+          <div class="value" id="t-carros">—</div>
+          <div class="sub" id="s-carros">ida + volta</div>
+        </div>
+        <div class="total-card">
+          <div class="icon">🏍️</div>
+          <div class="label">Motos</div>
+          <div class="value" id="t-motos">—</div>
+          <div class="sub" id="s-motos">ida + volta</div>
+        </div>
+        <div class="total-card">
+          <div class="icon">🚛</div>
+          <div class="label">Caminhões</div>
+          <div class="value" id="t-caminhoes">—</div>
+          <div class="sub" id="s-caminhoes">ida + volta</div>
+        </div>
+        <div class="total-card">
+          <div class="icon">🚌</div>
+          <div class="label">Ônibus</div>
+          <div class="value" id="t-onibus">—</div>
+          <div class="sub" id="s-onibus">ida + volta</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CÂMERAS -->
+    <section>
+      <div class="section-title">Câmeras Ativas</div>
+      <div id="cameras-container">
+        <div class="empty-state">
+          <span class="big pulsing">📡</span>
+          <span>Conectando ao sistema...</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- HISTÓRICO -->
+    <section>
+      <div class="historico-wrap">
+        <div class="hist-header">
+          <span>Histórico Recente</span>
+          <span id="hist-count">0 eventos</span>
+        </div>
+        <div id="historico-list">
+          <div class="empty-state">
+            <span class="big">📋</span>
+            <span>Nenhum evento ainda</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+// ────────────────────────────────────────────────────────────────────────────
+// CONFIGURAÇÃO
+// ────────────────────────────────────────────────────────────────────────────
+
+const WS_URL = `ws://${location.host}/ws`;
+
+const CAT_ICONS = {
+  "Carros":    "🚘",
+  "Motos":     "🏍️",
+  "Caminhões": "🚛",
+  "Ônibus":    "🚌",
+  "Indefinido":"❓"
+};
+
+const SENTIDO_BADGE = {
+  "ida":   '<span class="badge badge-ida">↑ IDA</span>',
+  "volta": '<span class="badge badge-volta">↓ VOLTA</span>',
+  "indefinido": '<span class="badge" style="background:#222;color:#666">?</span>'
+};
+
+// ────────────────────────────────────────────────────────────────────────────
+// ESTADO
+// ────────────────────────────────────────────────────────────────────────────
+
+let maxTotal = 1; // Para calcular barras de progresso relativas
+
+// ────────────────────────────────────────────────────────────────────────────
+// WEBSOCKET
+// ────────────────────────────────────────────────────────────────────────────
+
+let ws = null;
+let reconnectTimer = null;
+
+function conectar() {
+  setStatus('Conectando...', false);
+
+  ws = new WebSocket(WS_URL);
+
+  ws.onopen = () => {
+    setStatus('Online', true);
+    clearTimeout(reconnectTimer);
+    // Ping periódico para manter conexão viva
+    setInterval(() => { if (ws.readyState === WebSocket.OPEN) ws.send('ping'); }, 20000);
+  };
+
+  ws.onmessage = (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      if (data.tipo === 'contadores') {
+        renderDados(data);
+        document.getElementById('last-update').textContent =
+          'Atualizado às ' + new Date().toLocaleTimeString('pt-BR');
+      }
+    } catch(err) {
+      console.error('Erro ao parsear mensagem:', err);
+    }
+  };
+
+  ws.onclose = () => {
+    setStatus('Desconectado', false);
+    // Tenta reconectar após 3 segundos
+    reconnectTimer = setTimeout(conectar, 3000);
+  };
+
+  ws.onerror = () => {
+    setStatus('Erro de conexão', false);
+  };
+}
+
+function setStatus(texto, online) {
+  const dot  = document.getElementById('status-dot');
+  const txt  = document.getElementById('status-text');
+  dot.className  = 'dot ' + (online ? 'online' : 'offline');
+  txt.className  = online ? 'online' : 'offline';
+  txt.textContent = texto;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// RENDERIZAÇÃO DOS DADOS
+// ────────────────────────────────────────────────────────────────────────────
+
+function renderDados(data) {
+  const cameras = data.cameras || [];
+
+  renderTotaisGlobais(cameras);
+  renderCameras(cameras);
+  buscarHistorico(); // Busca histórico via REST (não vem no WS por performance)
+}
+
+function renderTotaisGlobais(cameras) {
+  // Agregar por categoria somando todas as câmeras
+  const totais = { Carros: 0, Motos: 0, Caminhões: 0, Ônibus: 0 };
+  let geral = 0;
+
+  cameras.forEach(cam => {
+    Object.entries(cam.categorias).forEach(([cat, v]) => {
+      if (totais[cat] !== undefined) {
+        totais[cat] += v.ida + v.volta;
+      }
+    });
+    geral += cam.total.geral;
+  });
+
+  animNum('t-geral',      geral);
+  animNum('t-carros',     totais['Carros']);
+  animNum('t-motos',      totais['Motos']);
+  animNum('t-caminhoes',  totais['Caminhões']);
+  animNum('t-onibus',     totais['Ônibus']);
+
+  // Sub-labels com ida/volta somados de todas as câmeras
+  const catIda = {};
+  const catVolta = {};
+  cameras.forEach(cam => {
+    Object.entries(cam.categorias).forEach(([cat, v]) => {
+      catIda[cat]   = (catIda[cat]   || 0) + v.ida;
+      catVolta[cat] = (catVolta[cat] || 0) + v.volta;
+    });
+  });
+
+  const fmt = (cat, id) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = `↑ ${catIda[cat]||0} ida  ↓ ${catVolta[cat]||0} volta`;
+  };
+  fmt('Carros',    's-carros');
+  fmt('Motos',     's-motos');
+  fmt('Caminhões', 's-caminhoes');
+  fmt('Ônibus',    's-onibus');
+}
+
+function renderCameras(cameras) {
+  const container = document.getElementById('cameras-container');
+
+  if (!cameras.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <span class="big">📷</span>
+        <span>Nenhuma câmera com dados. Inicie o monitoramento no sistema principal.</span>
+      </div>`;
+    return;
+  }
+
+  // Atualizar maxTotal para barras de progresso
+  maxTotal = Math.max(1, ...cameras.map(c => c.total.geral));
+
+  // Gerar HTML de cada câmera
+  container.innerHTML = cameras.map(cam => renderCamera(cam)).join('');
+}
+
+function renderCamera(cam) {
+  const urlCurta = cam.rtsp_url.replace(/rtsp:\/\/[^@]+@/, 'rtsp://***@'); // Oculta senha
+
+  const cats = Object.entries(cam.categorias).map(([nome, v]) => {
+    const total = v.ida + v.volta;
+    const pct = maxTotal > 0 ? Math.round((total / maxTotal) * 100) : 0;
+    const icon = CAT_ICONS[nome] || '🚗';
+    return `
+      <div class="cat-row">
+        <span class="cat-icon">${icon}</span>
+        <div class="cat-info">
+          <div class="cat-name">${nome}</div>
+          <div class="cat-counts">
+            <span class="badge badge-ida">↑ ${v.ida}</span>
+            <span class="badge badge-volta">↓ ${v.volta}</span>
+          </div>
+          <div class="progress-bar-wrap">
+            <div class="progress-bar" style="width:${pct}%"></div>
+          </div>
+        </div>
+        <div class="cat-total">${total}</div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="camera-card">
+      <div class="camera-header">
+        <span class="cam-id">CAM</span>
+        <span class="cam-url" title="${cam.rtsp_url}">${urlCurta}</span>
+        <span class="cam-total">${cam.total.geral} total</span>
+      </div>
+      <div class="camera-body">
+        ${cats}
+      </div>
+    </div>`;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// HISTÓRICO (via REST)
+// ────────────────────────────────────────────────────────────────────────────
+
+async function buscarHistorico() {
+  try {
+    const res  = await fetch('/api/historico?limite=50');
+    const data = await res.json();
+    renderHistorico(data);
+  } catch(e) {
+    // Silencioso — não quebra o dashboard se falhar
+  }
+}
+
+function renderHistorico(eventos) {
+  const list  = document.getElementById('historico-list');
+  const count = document.getElementById('hist-count');
+
+  count.textContent = `${eventos.length} eventos`;
+
+  if (!eventos.length) {
+    list.innerHTML = `<div class="empty-state"><span class="big">📋</span><span>Nenhum evento ainda</span></div>`;
+    return;
+  }
+
+  list.innerHTML = eventos.map(ev => {
+    const urlCurta = (ev.rtsp_url || '').replace(/rtsp:\/\/[^@]+@/, '***@');
+    const badge = SENTIDO_BADGE[ev.sentido] || ev.sentido;
+    const icon  = CAT_ICONS[ev.categoria] || '🚗';
+    return `
+      <div class="hist-item">
+        <span class="hist-time">${ev.timestamp}</span>
+        <span class="hist-cat">${icon} ${ev.categoria}</span>
+        <span class="hist-dir">${badge}</span>
+        <span class="hist-cam" title="${ev.rtsp_url}">${urlCurta}</span>
+      </div>`;
+  }).join('');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// ANIMAÇÃO DE NÚMERO (contador animado)
+// ────────────────────────────────────────────────────────────────────────────
+
+const _numState = {};
+
+function animNum(id, target) {
+  const el = document.getElementById(id);
+  if (!el) return;
+
+  const current = _numState[id] || 0;
+  if (current === target) return;
+
+  const diff     = target - current;
+  const steps    = 20;
+  const stepVal  = diff / steps;
+  let   step     = 0;
+
+  clearInterval(_numState['_timer_' + id]);
+  _numState['_timer_' + id] = setInterval(() => {
+    step++;
+    _numState[id] = Math.round(current + stepVal * step);
+    el.textContent = _numState[id].toLocaleString('pt-BR');
+    if (step >= steps) {
+      clearInterval(_numState['_timer_' + id]);
+      _numState[id] = target;
+      el.textContent = target.toLocaleString('pt-BR');
+    }
+  }, 20);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// INICIALIZAÇÃO
+// ────────────────────────────────────────────────────────────────────────────
+
+conectar();
+</script>
+</body>
+</html>
