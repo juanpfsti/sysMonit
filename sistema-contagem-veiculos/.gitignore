@@ -1,0 +1,83 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environments
+venv/
+ENV/
+env/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+sistema_contagem.log
+
+# Configurações locais (com senhas)
+config.json
+config.json.backup
+
+# Modelos YOLO (são grandes)
+*.pt
+yolov9*.pt
+
+# Relatórios gerados
+relatorio_*.xlsx
+*.xlsx
+
+# Vídeos de teste
+*.mp4
+*.avi
+*.mov
+
+# Arquivos temporários
+*.tmp
+*.bak
+.cache/
+
+# PyCharm
+.idea/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Claude Code
+.claude/
+
+# Chave de segurança
+.secret.key
