@@ -1,0 +1,26 @@
+# Sistema de Contagem de Veículos
+# Versão 2.5.0
+
+# Core
+opencv-python>=4.8.0
+numpy>=1.24.0
+PyQt5>=5.15.0
+matplotlib>=3.7.0
+
+# YOLO
+ultralytics>=8.3.0
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Exportação Excel
+pandas>=1.5.0
+openpyxl>=3.0.0
+
+# Banco de dados
+# (SQLite já vem com Python)
+
+# Opcionais (melhoram performance)
+av>=10.0.0  # PyAV para RTSP mais estável
+
+# Windows específico (necessário para build do executável)
+pywin32>=306; platform_system == "Windows"

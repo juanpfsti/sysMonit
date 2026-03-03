@@ -1,0 +1,66 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  background: #0f172a;
+  color: white;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  background: #1e293b;
+}
+
+.filters {
+  display: flex;
+  gap: 10px;
+}
+
+select {
+  background: #334155;
+  color: white;
+  border: none;
+  padding: 10px;
+  border-radius: 8px;
+  appearance: none;
+  cursor: pointer;
+  width: 160px;
+  text-align: center;
+}
+
+select:focus {
+  outline: none;
+  background: #475569;
+}
+
+button {
+  background: #2563eb;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #1d4ed8;
+}
+
+.dashboards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  padding: 20px;
+}
+
+.card {
+  background: #1e293b;
+  padding: 20px;
+  border-radius: 15px;
+}
+
+.full {
+  grid-column: span 2;
+}
