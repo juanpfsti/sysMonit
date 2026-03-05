@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SysMonit — Monitoramento Veicular</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<style>
+/* ═══════════════════════════════════════════
+   RESET & TOKENS
+═══════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:     #05090f;
+  --s1:     #0a1220;
+  --s2:     #0e1a2e;
+  --s3:     #121f35;
+  --bd:     #1c304d;
+  --bd2:    #243d60;
+  --cyan:   #00d4ff;
+  --blue:   #2563eb;
+  --green:  #10d47e;
+  --amber:  #f59e0b;
+  --red:    #ef4444;
+  --violet: #8b5cf6;
+  --text:   #e2eeff;
+  --text2:  #8aadce;
+  --muted:  #3d5a7a;
+  --mono:   'JetBrains Mono',monospace;
+  --sans:   'Outfit',sans-serif;
+}
+
+html,body{height:100%;font-family:var(--sans);background:var(--bg);color:var(--text);overflow-x:hidden}
+body{background-image:
+  radial-gradient(ellipse 80% 30% at 60% 0%,rgba(0,100,200,.13) 0%,transparent 60%),
+  radial-gradient(ellipse 40% 20% at 5% 80%,rgba(37,99,235,.06) 0%,transparent 55%)}
+
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:3px}
+
+/* ═══════════════════════════════════════════
+   HEADER
+═══════════════════════════════════════════ */
+header{
+  height:56px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 24px;background:rgba(10,18,32,.97);
+  border-bottom:1px solid var(--bd);backdrop-filter:blur(12px);
+  position:sticky;top:0;z-index:300
+}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-mark{
+  width:30px;height:30px;border-radius:7px;font-size:14px;
+  background:linear-gradient(135deg,var(--cyan),var(--blue));
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 16px rgba(0,212,255,.3)
+}
+.logo-name{font-size:16px;font-weight:800;letter-spacing:-.3px}
+.logo-name em{color:var(--cyan);font-style:normal}
+#hdr-time{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.ws-pill{
+  display:flex;align-items:center;gap:7px;padding:4px 11px;
+  border-radius:20px;border:1px solid var(--bd);
+  font-family:var(--mono);font-size:11px;color:var(--muted);transition:all .3s
+}
+.ws-pill.online {border-color:rgba(16,212,126,.3);color:var(--green)}
+.ws-pill.offline{border-color:rgba(239,68,68,.3); color:var(--red)}
+.ws-dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0}
+.ws-pill.online .ws-dot{animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ═══════════════════════════════════════════
+   FILTER BAR GLOBAL
+═══════════════════════════════════════════ */
+.gfbar{
+  background:var(--s1);border-bottom:1px solid var(--bd);
+  padding:9px 24px;display:flex;align-items:center;gap:9px;flex-wrap:wrap;
+  position:sticky;top:56px;z-index:200
+}
+.flabel{font-size:10px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.fgroup{display:flex;align-items:center;gap:6px}
+.fsep{width:1px;height:20px;background:var(--bd);margin:0 3px}
+
+select,input[type=datetime-local]{
+  background:var(--s2);color:var(--text);border:1px solid var(--bd);
+  border-radius:7px;padding:5px 10px;font-family:var(--sans);font-size:12px;
+  cursor:pointer;outline:none;transition:border-color .2s;height:30px
+}
+select:hover,select:focus,input:hover,input:focus{border-color:var(--cyan)}
+input[type=datetime-local]{font-family:var(--mono);font-size:11px;width:178px}
+
+.btn{
+  height:30px;padding:0 13px;border-radius:7px;cursor:pointer;
+  font-family:var(--sans);font-weight:700;font-size:11px;
+  letter-spacing:.8px;text-transform:uppercase;border:1px solid;
+  display:inline-flex;align-items:center;gap:5px;transition:all .2s;white-space:nowrap
+}
+.btn-primary{background:rgba(0,212,255,.09);border-color:rgba(0,212,255,.35);color:var(--cyan)}
+.btn-primary:hover{background:rgba(0,212,255,.18);box-shadow:0 0 10px rgba(0,212,255,.2)}
+.btn-ghost{background:transparent;border-color:var(--bd);color:var(--text2)}
+.btn-ghost:hover{border-color:var(--bd2);color:var(--text)}
+.btn-green{background:rgba(16,212,126,.07);border-color:rgba(16,212,126,.3);color:var(--green)}
+.btn-green:hover{background:rgba(16,212,126,.16)}
+.btn-amber{background:rgba(245,158,11,.07);border-color:rgba(245,158,11,.3);color:var(--amber)}
+.btn-amber:hover{background:rgba(245,158,11,.16)}
+
+/* export dropdown */
+.exp-wrap{position:relative;margin-left:auto}
+.exp-menu{
+  display:none;position:absolute;top:calc(100% + 7px);right:0;
+  background:var(--s2);border:1px solid var(--bd2);border-radius:11px;
+  overflow:hidden;min-width:210px;box-shadow:0 18px 50px rgba(0,0,0,.55);z-index:400
+}
+.exp-menu.open{display:block;animation:fdwn .17s ease}
+@keyframes fdwn{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
+.exp-item{
+  padding:10px 16px;font-size:12px;cursor:pointer;
+  display:flex;align-items:center;gap:10px;transition:background .15s;color:var(--text2)
+}
+.exp-item:hover{background:var(--s3);color:var(--text)}
+.exp-item .ei{font-size:15px;width:20px;flex-shrink:0}
+.exp-sub{font-size:10px;color:var(--muted);margin-top:1px}
+
+/* ═══════════════════════════════════════════
+   PAGE LAYOUT
+═══════════════════════════════════════════ */
+.page{padding:18px 24px 32px;display:flex;flex-direction:column;gap:16px;max-width:1600px;margin:0 auto}
+
+/* ═══════════════════════════════════════════
+   KPI STRIP
+═══════════════════════════════════════════ */
+.kpi-row{display:grid;grid-template-columns:1.7fr repeat(3,1fr);gap:13px}
+
+.kpi{
+  background:var(--s1);border:1px solid var(--bd);border-radius:13px;
+  padding:17px 20px;position:relative;overflow:hidden;
+  transition:border-color .25s,transform .2s;animation:fup .4s ease both
+}
+.kpi::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--kc,var(--cyan)),transparent)
+}
+.kpi:hover{border-color:var(--kc,var(--cyan));transform:translateY(-2px)}
+.kpi:nth-child(1){animation-delay:.04s}.kpi:nth-child(2){animation-delay:.09s}
+.kpi:nth-child(3){animation-delay:.13s}.kpi:nth-child(4){animation-delay:.17s}
+@keyframes fup{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+.kpi-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:7px}
+.kpi-icon{font-size:20px}
+.kpi-rng{font-family:var(--mono);font-size:9px;background:rgba(255,255,255,.05);color:var(--muted);padding:2px 7px;border-radius:4px}
+.kpi-lbl{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.kpi-val{font-family:var(--mono);font-size:2.4rem;font-weight:700;color:var(--kc,var(--cyan));line-height:1}
+.kpi.hero .kpi-val{font-size:2.9rem;color:var(--text)}
+
+.kpi-dirs{display:flex;gap:7px;margin-top:9px;font-family:var(--mono);font-size:10px}
+.di{padding:3px 8px;border-radius:5px;background:rgba(16,212,126,.1);color:var(--green);font-weight:600}
+.dv{padding:3px 8px;border-radius:5px;background:rgba(91,155,255,.12);color:#5b9bff;font-weight:600}
+
+.kpi-split{display:flex;gap:18px;margin-top:9px}
+.ks-item{display:flex;flex-direction:column;gap:2px}
+.ks-lbl{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}
+.ks-val{font-family:var(--mono);font-size:1.4rem;font-weight:700}
+.ks-val.ida{color:var(--green)}.ks-val.volta{color:#5b9bff}
+
+/* ═══════════════════════════════════════════
+   CHART CARDS
+═══════════════════════════════════════════ */
+.charts-row{display:grid;gap:14px}
+.charts-row.r2{grid-template-columns:repeat(2,1fr)}
+.charts-row.r21{grid-template-columns:1.5fr 1fr}
+
+.card{
+  background:var(--s1);border:1px solid var(--bd);border-radius:13px;
+  padding:16px 18px;position:relative;overflow:hidden;animation:fup .45s ease both
+}
+
+/* card filter bar (per-chart) */
+.card-hdr{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px}
+.card-title-wrap{display:flex;flex-direction:column;gap:3px}
+.card-title{font-size:10px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:var(--cyan)}
+.card-subtitle{font-size:10px;color:var(--muted);font-family:var(--mono)}
+
+.card-filters{
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+  background:var(--s2);border:1px solid var(--bd);border-radius:8px;
+  padding:6px 10px
+}
+.card-filters .flabel{font-size:9px}
+.card-filters select{height:24px;font-size:10px;padding:3px 8px;border-radius:5px}
+.card-filters input[type=datetime-local]{height:24px;font-size:10px;padding:3px 7px;border-radius:5px;width:160px}
+.cf-sep{width:1px;height:16px;background:var(--bd);margin:0 2px}
+.card-filters .btn{height:24px;font-size:10px;padding:0 10px}
+
+.chart-wrap{position:relative}
+.overlay{
+  position:absolute;inset:0;background:rgba(5,9,15,.8);
+  display:flex;align-items:center;justify-content:center;
+  border-radius:10px;z-index:10;opacity:0;pointer-events:none;transition:opacity .2s
+}
+.overlay.on{opacity:1;pointer-events:all}
+.spinner{
+  width:24px;height:24px;border:2px solid var(--bd);
+  border-top-color:var(--cyan);border-radius:50%;
+  animation:spin .6s linear infinite
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ═══════════════════════════════════════════
+   MODAL EXPORT PERSONALIZADO
+═══════════════════════════════════════════ */
+.modal-bg{
+  position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:500;
+  display:none;align-items:center;justify-content:center
+}
+.modal-bg.open{display:flex;animation:fbg .2s ease}
+@keyframes fbg{from{opacity:0}to{opacity:1}}
+
+.modal{
+  background:var(--s1);border:1px solid var(--bd2);border-radius:15px;
+  padding:26px;width:540px;max-width:calc(100vw - 28px);
+  box-shadow:0 28px 80px rgba(0,0,0,.65);animation:min .22s ease
+}
+@keyframes min{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
+.modal-ttl{font-size:15px;font-weight:700;margin-bottom:20px}
+.modal-ttl em{color:var(--cyan);font-style:normal}
+
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+.ff{display:flex;flex-direction:column;gap:4px}
+.ff.full{grid-column:span 2}
+.ff label{font-size:9px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:var(--muted)}
+.ff select,.ff input{width:100%;height:34px;font-size:12px}
+
+.cblbl{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
+.cbgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:18px}
+.cbi{
+  display:flex;align-items:center;gap:7px;padding:8px 11px;
+  background:var(--s2);border:1px solid var(--bd);border-radius:7px;
+  cursor:pointer;font-size:12px;user-select:none;transition:border-color .2s
+}
+.cbi:hover{border-color:var(--bd2)}
+.cbi input{accent-color:var(--cyan);width:13px;height:13px;cursor:pointer}
+.cbi.on{border-color:rgba(0,212,255,.3);background:rgba(0,212,255,.05)}
+
+.modal-foot{display:flex;justify-content:flex-end;gap:9px;margin-top:4px}
+
+/* ═══════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════ */
+#toast{
+  position:fixed;bottom:20px;right:20px;background:var(--s2);
+  border:1px solid var(--cyan);border-radius:8px;padding:9px 16px;
+  font-family:var(--mono);font-size:11px;color:var(--cyan);
+  transform:translateY(60px);opacity:0;transition:all .25s;z-index:999
+}
+#toast.show{transform:translateY(0);opacity:1}
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════════ */
+@media(max-width:1100px){
+  .kpi-row{grid-template-columns:repeat(2,1fr)}
+  .charts-row.r2,.charts-row.r21{grid-template-columns:1fr}
+}
+@media(max-width:650px){
+  .kpi-row{grid-template-columns:1fr 1fr}
+  .gfbar{gap:6px}
+  input[type=datetime-local]{width:145px}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════ HEADER ═══════════════════════════ -->
+<header>
+  <div class="logo">
+    <div class="logo-mark">📡</div>
+    <div class="logo-name">Sys<em>Monit</em></div>
+  </div>
+  <div style="display:flex;flex-direction:column;align-items:center;gap:1px">
+    <span id="hdr-date" style="font-family:var(--mono);font-size:10px;color:var(--muted)"></span>
+    <span id="hdr-time" style="font-family:var(--mono);font-size:13px;color:var(--text2);font-weight:600"></span>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <div class="ws-pill" id="wsPill">
+      <div class="ws-dot"></div>
+      <span id="wsLabel">Conectando...</span>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════════════ FILTRO GLOBAL ════════════════════════ -->
+<div class="gfbar" id="gfbar">
+
+  <span class="flabel">Período</span>
+  <select id="gPeriodo" onchange="onGPeriodo()">
+    <optgroup label="Minutos">
+      <option value="5">5 min</option>
+      <option value="10">10 min</option>
+      <option value="15">15 min</option>
+      <option value="30">30 min</option>
+    </optgroup>
+    <optgroup label="Horas">
+      <option value="60">1 hora</option>
+      <option value="120">2 horas</option>
+      <option value="360">6 horas</option>
+      <option value="720">12 horas</option>
+    </optgroup>
+    <optgroup label="Dias">
+      <option value="1440">1 dia</option>
+      <option value="4320">3 dias</option>
+      <option value="10080" selected>7 dias</option>
+      <option value="20160">14 dias</option>
+      <option value="43200">30 dias</option>
+    </optgroup>
+    <optgroup label="Personalizado">
+      <option value="custom">Personalizado...</option>
+    </optgroup>
+  </select>
+
+  <!-- datetime sempre visível; predefinido preenche automaticamente -->
+  <div style="display:flex;align-items:center;gap:5px">
+    <input type="datetime-local" id="gDtIni" onchange="onGDateChange()">
+    <span style="color:var(--muted);font-size:12px">→</span>
+    <input type="datetime-local" id="gDtFim" onchange="onGDateChange()">
+  </div>
+
+  <div class="fsep"></div>
+
+  <span class="flabel">Categoria</span>
+  <select id="gCat" onchange="aplicarGlobal()">
+    <option value="all">Todas</option>
+    <option value="passeio">Passeio</option>
+    <option value="moto">Motos</option>
+    <option value="comercial">Comercial</option>
+  </select>
+
+  <span class="flabel">Sentido</span>
+  <select id="gSentido" onchange="aplicarGlobal()">
+    <option value="all">Todos</option>
+    <option value="ida">Ida</option>
+    <option value="volta">Volta</option>
+  </select>
+
+  <button class="btn btn-primary" onclick="aplicarGlobal()">⟳ Aplicar</button>
+
+  <!-- EXPORT -->
+  <div class="exp-wrap">
+    <button class="btn btn-green" onclick="toggleExp()">⬇ Exportar</button>
+    <div class="exp-menu" id="expMenu">
+      <div class="exp-item" onclick="exportExcel('periodo')">
+        <span class="ei">📊</span>
+        <div><div>Excel — Período filtrado</div><div class="exp-sub">Registros brutos .xlsx</div></div>
+      </div>
+      <div class="exp-item" onclick="exportExcel('agregado')">
+        <span class="ei">📈</span>
+        <div><div>Excel — Agregado por Dia</div><div class="exp-sub">Totais diários por categoria</div></div>
+      </div>
+      <div class="exp-item" onclick="exportExcel('heatmap')">
+        <span class="ei">🗺️</span>
+        <div><div>Excel — Heatmap Hora × Dia</div><div class="exp-sub">Matriz de fluxo horário</div></div>
+      </div>
+      <div class="exp-item" onclick="abrirModal()">
+        <span class="ei">⚙️</span>
+        <div><div>Exportação Personalizada</div><div class="exp-sub">Campos, formato e filtros</div></div>
+      </div>
+      <div class="exp-item" onclick="exportPDF()">
+        <span class="ei">📄</span>
+        <div><div>Relatório PDF</div><div class="exp-sub">Resumo executivo com KPIs</div></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /gfbar -->
+
+<!-- ═══════════════════════ PAGE ══════════════════════════════ -->
+<div class="page">
+
+  <!-- ── KPIs ── -->
+  <div class="kpi-row">
+
+    <div class="kpi hero" style="--kc:var(--cyan)">
+      <div class="kpi-top">
+        <span class="kpi-icon">🚦</span>
+        <span class="kpi-rng" id="kpi-rng">7 dias</span>
+      </div>
+      <div class="kpi-lbl">Total Geral</div>
+      <div class="kpi-val" id="t-geral">—</div>
+      <div class="kpi-split">
+        <div class="ks-item"><div class="ks-lbl">Ida</div><div class="ks-val ida" id="t-geral-ida">—</div></div>
+        <div class="ks-item"><div class="ks-lbl">Volta</div><div class="ks-val volta" id="t-geral-volta">—</div></div>
+      </div>
+    </div>
+
+    <div class="kpi" style="--kc:#5b9bff">
+      <div class="kpi-top"><span class="kpi-icon">🚘</span></div>
+      <div class="kpi-lbl">Passeio</div>
+      <div class="kpi-val" id="t-passeio">—</div>
+      <div class="kpi-dirs">
+        <span class="di" id="ida-passeio">↑ —</span>
+        <span class="dv" id="volta-passeio">↓ —</span>
+      </div>
+    </div>
+
+    <div class="kpi" style="--kc:var(--amber)">
+      <div class="kpi-top"><span class="kpi-icon">🏍️</span></div>
+      <div class="kpi-lbl">Motos</div>
+      <div class="kpi-val" id="t-moto">—</div>
+      <div class="kpi-dirs">
+        <span class="di" id="ida-moto">↑ —</span>
+        <span class="dv" id="volta-moto">↓ —</span>
+      </div>
+    </div>
+
+    <div class="kpi" style="--kc:var(--violet)">
+      <div class="kpi-top"><span class="kpi-icon">🚛</span></div>
+      <div class="kpi-lbl">Comercial</div>
+      <div class="kpi-val" id="t-comercial">—</div>
+      <div class="kpi-dirs">
+        <span class="di" id="ida-comercial">↑ —</span>
+        <span class="dv" id="volta-comercial">↓ —</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── ROW A: Evolução + Picos ── -->
+  <div class="charts-row r2">
+
+    <!-- Evolução Temporal -->
+    <div class="card">
+      <div class="card-hdr">
+        <div class="card-title-wrap">
+          <div class="card-title">Evolução Temporal</div>
+          <div class="card-subtitle" id="evol-info">—</div>
+        </div>
+        <div class="card-filters">
+          <span class="flabel">Período</span>
+          <select id="evol-periodo" onchange="syncCardPeriodo('evol')">
+            <option value="__global__" selected>Global</option>
+            <option value="60">1h</option><option value="360">6h</option>
+            <option value="1440">1 dia</option><option value="4320">3 dias</option>
+            <option value="10080">7 dias</option><option value="43200">30 dias</option>
+            <option value="custom">Personalizado</option>
+          </select>
+          <div id="evol-custom" style="display:none;align-items:center;gap:4px">
+            <input type="datetime-local" id="evol-ini">
+            <span style="color:var(--muted);font-size:11px">→</span>
+            <input type="datetime-local" id="evol-fim">
+          </div>
+          <div class="cf-sep"></div>
+          <span class="flabel">Gran.</span>
+          <select id="evol-gran">
+            <option value="hour">Hora</option>
+            <option value="day" selected>Dia</option>
+          </select>
+          <span class="flabel">Cat.</span>
+          <select id="evol-cat">
+            <option value="all">Todas</option>
+            <option value="passeio">Passeio</option>
+            <option value="moto">Motos</option>
+            <option value="comercial">Comercial</option>
+          </select>
+          <span class="flabel">Sentido</span>
+          <select id="evol-sentido">
+            <option value="all">Todos</option>
+            <option value="ida">Ida</option>
+            <option value="volta">Volta</option>
+          </select>
+          <button class="btn btn-primary" onclick="carregarEvolucao()">⟳</button>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <div class="overlay" id="ov-evol"><div class="spinner"></div></div>
+        <canvas id="evolChart" height="195"></canvas>
+      </div>
+    </div>
+
+    <!-- Picos Diários -->
+    <div class="card">
+      <div class="card-hdr">
+        <div class="card-title-wrap">
+          <div class="card-title">Picos Diários</div>
+          <div class="card-subtitle" id="picos-info">—</div>
+        </div>
+        <div class="card-filters">
+          <span class="flabel">Período</span>
+          <select id="picos-periodo" onchange="syncCardPeriodo('picos')">
+            <option value="__global__" selected>Global</option>
+            <option value="1440">1 dia</option><option value="4320">3 dias</option>
+            <option value="10080">7 dias</option><option value="43200">30 dias</option>
+            <option value="custom">Personalizado</option>
+          </select>
+          <div id="picos-custom" style="display:none;align-items:center;gap:4px">
+            <input type="datetime-local" id="picos-ini">
+            <span style="color:var(--muted);font-size:11px">→</span>
+            <input type="datetime-local" id="picos-fim">
+          </div>
+          <div class="cf-sep"></div>
+          <span class="flabel">Cat.</span>
+          <select id="picos-cat">
+            <option value="all">Todas</option>
+            <option value="passeio">Passeio</option>
+            <option value="moto">Motos</option>
+            <option value="comercial">Comercial</option>
+          </select>
+          <button class="btn btn-primary" onclick="carregarPicos()">⟳</button>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <div class="overlay" id="ov-picos"><div class="spinner"></div></div>
+        <canvas id="picosChart" height="195"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── ROW B: Heatmap + Distribuição ── -->
+  <div class="charts-row r21">
+
+    <!-- Heatmap volume × hora -->
+    <div class="card">
+      <div class="card-hdr">
+        <div class="card-title-wrap">
+          <div class="card-title">Volume por Hora do Dia</div>
+          <div class="card-subtitle" id="heat-info">—</div>
+        </div>
+        <div class="card-filters">
+          <span class="flabel">Período</span>
+          <select id="heat-periodo" onchange="syncCardPeriodo('heat')">
+            <option value="__global__" selected>Global</option>
+            <option value="1440">1 dia</option><option value="4320">3 dias</option>
+            <option value="10080">7 dias</option><option value="43200">30 dias</option>
+            <option value="custom">Personalizado</option>
+          </select>
+          <div id="heat-custom" style="display:none;align-items:center;gap:4px">
+            <input type="datetime-local" id="heat-ini">
+            <span style="color:var(--muted);font-size:11px">→</span>
+            <input type="datetime-local" id="heat-fim">
+          </div>
+          <div class="cf-sep"></div>
+          <span class="flabel">Cat.</span>
+          <select id="heat-cat">
+            <option value="all">Todas</option>
+            <option value="passeio">Passeio</option>
+            <option value="moto">Motos</option>
+            <option value="comercial">Comercial</option>
+          </select>
+          <span class="flabel">Sentido</span>
+          <select id="heat-sentido">
+            <option value="all">Todos</option>
+            <option value="ida">Ida</option>
+            <option value="volta">Volta</option>
+          </select>
+          <button class="btn btn-primary" onclick="carregarHeatmap()">⟳</button>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <div class="overlay" id="ov-heat"><div class="spinner"></div></div>
+        <canvas id="heatChart" height="165"></canvas>
+      </div>
+    </div>
+
+    <!-- Distribuição -->
+    <div class="card">
+      <div class="card-hdr">
+        <div class="card-title-wrap">
+          <div class="card-title">Distribuição por Classe</div>
+          <div class="card-subtitle" id="dist-info">—</div>
+        </div>
+        <div class="card-filters">
+          <span class="flabel">Período</span>
+          <select id="dist-periodo" onchange="syncCardPeriodo('dist')">
+            <option value="__global__" selected>Global</option>
+            <option value="1440">1 dia</option><option value="4320">3 dias</option>
+            <option value="10080">7 dias</option><option value="43200">30 dias</option>
+            <option value="custom">Personalizado</option>
+          </select>
+          <div id="dist-custom" style="display:none;align-items:center;gap:4px">
+            <input type="datetime-local" id="dist-ini">
+            <span style="color:var(--muted);font-size:11px">→</span>
+            <input type="datetime-local" id="dist-fim">
+          </div>
+          <div class="cf-sep"></div>
+          <span class="flabel">Sentido</span>
+          <select id="dist-sentido">
+            <option value="all">Todos</option>
+            <option value="ida">Ida</option>
+            <option value="volta">Volta</option>
+          </select>
+          <button class="btn btn-primary" onclick="carregarDist()">⟳</button>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <div class="overlay" id="ov-dist"><div class="spinner"></div></div>
+        <canvas id="distChart" height="165"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+</div><!-- /page -->
+
+<div id="toast"></div>
+
+<!-- ════════════ MODAL EXPORT PERSONALIZADO ═════════════════ -->
+<div class="modal-bg" id="modalBg" onclick="fecharModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-ttl">⚙️ Exportação <em>Personalizada</em></div>
+    <div class="fg">
+      <div class="ff"><label>Data Início</label><input type="datetime-local" id="exp-ini"></div>
+      <div class="ff"><label>Data Fim</label><input type="datetime-local" id="exp-fim"></div>
+      <div class="ff"><label>Categoria</label>
+        <select id="exp-cat">
+          <option value="all">Todas</option>
+          <option value="passeio">Passeio</option>
+          <option value="moto">Motos</option>
+          <option value="comercial">Comercial</option>
+        </select>
+      </div>
+      <div class="ff"><label>Sentido</label>
+        <select id="exp-sentido">
+          <option value="all">Todos</option>
+          <option value="ida">Ida</option>
+          <option value="volta">Volta</option>
+        </select>
+      </div>
+      <div class="ff"><label>Formato</label>
+        <select id="exp-fmt">
+          <option value="xlsx">Excel (.xlsx)</option>
+          <option value="csv">CSV (.csv)</option>
+          <option value="json">JSON (.json)</option>
+          <option value="pdf">PDF Relatório</option>
+        </select>
+      </div>
+      <div class="ff"><label>Agrupamento</label>
+        <select id="exp-grp">
+          <option value="none">Sem agrupamento</option>
+          <option value="hour">Por Hora</option>
+          <option value="day">Por Dia</option>
+          <option value="category">Por Categoria</option>
+        </select>
+      </div>
+      <div class="ff"><label>Limite de Registros</label>
+        <select id="exp-lim">
+          <option value="1000">1.000</option>
+          <option value="5000">5.000</option>
+          <option value="10000" selected>10.000</option>
+          <option value="50000">50.000</option>
+          <option value="0">Todos</option>
+        </select>
+      </div>
+    </div>
+    <div class="cblbl">Colunas a exportar</div>
+    <div class="cbgrid" id="cbGrid">
+      <label class="cbi on"><input type="checkbox" value="timestamp" checked> Timestamp</label>
+      <label class="cbi on"><input type="checkbox" value="categoria" checked> Categoria</label>
+      <label class="cbi on"><input type="checkbox" value="sentido"   checked> Sentido</label>
+      <label class="cbi on"><input type="checkbox" value="rtsp_url"  checked> Câmera</label>
+      <label class="cbi on"><input type="checkbox" value="confianca" checked> Confiança</label>
+      <label class="cbi on"><input type="checkbox" value="frame_id"  checked> Frame ID</label>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="document.getElementById('modalBg').classList.remove('open')">Cancelar</button>
+      <button class="btn btn-green" onclick="exportPersonalizado()">⬇ Exportar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ JS ═══════════════════════════════ -->
+<script>
+// ── CONFIG ────────────────────────────────────────────────────
+const API    = "http://localhost:8000";
+// Quando servido pelo FastAPI (porta 8000) usa location.host; caso contrário força localhost:8000
+const WS_URL = location.port === "8000"
+  ? `ws://${location.host}/ws`
+  : "ws://localhost:8000/ws";
+
+// Mapa: nome da API → grupo frontend
+const CAT_MAP = {
+  "Carros":    "passeio",
+  "Motos":     "moto",
+  "Caminhões": "comercial",
+  "Ônibus":    "comercial",
+  "Indefinido":"passeio"
+};
+const CAT_LABELS = { passeio:"Passeio", moto:"Motos", comercial:"Comercial" };
+
+// Mapa inverso: grupo frontend → nomes da API (para montar querystring)
+const CAT_API_NAMES = {
+  passeio:   ["Carros","Indefinido"],
+  moto:      ["Motos"],
+  comercial: ["Caminhões","Ônibus"]
+};
+
+// Granularidade: frontend → API
+const GRAN_MAP = { hour:"hora", day:"dia", hora:"hora", dia:"dia" };
+
+// Converte grupo frontend → primeiro nome de categoria compatível com a API
+// (a API filtra por um nome por vez; quando "all" não envia o param)
+function catParamFor(grupo) {
+  if (grupo === "all") return null;
+  // Retorna o primeiro nome da API representativo (ex: "Carros" para passeio)
+  return CAT_API_NAMES[grupo]?.[0] || null;
+}
+
+// ── STATE ─────────────────────────────────────────────────────
+let evolChart, picosChart, heatChart, distChart;
+let ws, reconnTimer;
+let cachedRaw = [];
+const _anim = {};
+
+// ── CLOCK ─────────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  const dateEl = document.getElementById("hdr-date");
+  const timeEl = document.getElementById("hdr-time");
+  if (dateEl) dateEl.textContent = now.toLocaleDateString("pt-BR", {weekday:"short", day:"2-digit", month:"short", year:"numeric"});
+  if (timeEl) timeEl.textContent = now.toLocaleTimeString("pt-BR");
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+// ── HELPERS ───────────────────────────────────────────────────
+function mapCat(c) { return CAT_MAP[c] || "passeio"; }
+
+function globalRange() {
+  const ini = document.getElementById("gDtIni").value;
+  const fim = document.getElementById("gDtFim").value;
+  // Se datetime preenchido manualmente (custom ou pelo predefinido), usar diretamente
+  if (ini && fim) return { inicio: ini, fim };
+  // Fallback pelo select
+  const v = document.getElementById("gPeriodo").value;
+  const now = new Date();
+  if (v === "custom" || !parseInt(v)) {
+    return {
+      inicio: new Date(now - 7*864e5).toISOString().slice(0,16),
+      fim:    now.toISOString().slice(0,16)
+    };
+  }
+  return {
+    inicio: new Date(now - parseInt(v)*6e4).toISOString().slice(0,16),
+    fim:    now.toISOString().slice(0,16)
+  };
+}
+
+function cardRange(prefix) {
+  const v = document.getElementById(prefix+"-periodo").value;
+  if (v === "__global__") return globalRange();
+  if (v === "custom") {
+    const i = document.getElementById(prefix+"-ini").value;
+    const f = document.getElementById(prefix+"-fim").value;
+    const now = new Date();
+    return {
+      inicio: i || globalRange().inicio,
+      fim:    f || now.toISOString().slice(0,16)
+    };
+  }
+  const now = new Date();
+  return {
+    inicio: new Date(now - parseInt(v)*6e4).toISOString().slice(0,16),
+    fim:    now.toISOString().slice(0,16)
+  };
+}
+
+function syncCardPeriodo(prefix) {
+  const v  = document.getElementById(prefix+"-periodo").value;
+  const cw = document.getElementById(prefix+"-custom");
+  cw.style.display = v === "custom" ? "flex" : "none";
+}
+
+function cval(id) { return document.getElementById(id)?.value || "all"; }
+function setLoad(id, on) { document.getElementById(id)?.classList.toggle("on", on); }
+
+function toast(msg, ms = 3000) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), ms);
+}
+
+function animNum(id, target) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const cur = _anim[id] || 0;
+  if (cur === target) return;
+  const steps = 22, inc = (target-cur)/steps;
+  let i = 0;
+  clearInterval(_anim["_"+id]);
+  _anim["_"+id] = setInterval(() => {
+    i++; _anim[id] = Math.round(cur + inc*i);
+    el.textContent = _anim[id].toLocaleString("pt-BR");
+    if (i >= steps) { clearInterval(_anim["_"+id]); _anim[id]=target; el.textContent=target.toLocaleString("pt-BR"); }
+  }, 16);
+}
+
+function rangeLabel(prefix) {
+  const v = document.getElementById(prefix === "g" ? "gPeriodo" : prefix+"-periodo")?.value;
+  const map = { "5":"5 min","10":"10 min","15":"15 min","30":"30 min",
+    "60":"1h","120":"2h","360":"6h","720":"12h",
+    "1440":"1 dia","4320":"3 dias","10080":"7 dias","20160":"14 dias","43200":"30 dias" };
+  if (v === "__global__") return "Global";
+  if (v === "custom") return "Personalizado";
+  return map[v] || v+"m";
+}
+
+// ── CHART DEFAULTS ────────────────────────────────────────────
+const gC = "rgba(28,48,77,.45)", tC = "#3d5a7a";
+function bScales(xTitle="") {
+  return {
+    x: { ticks:{color:tC,font:{family:"'JetBrains Mono'",size:10}}, grid:{color:gC},
+         title:{display:!!xTitle,text:xTitle,color:tC,font:{size:10}} },
+    y: { ticks:{color:tC,font:{family:"'JetBrains Mono'",size:10},
+           callback:v=>Number.isInteger(v)?v.toLocaleString("pt-BR"):null},
+         grid:{color:gC}, beginAtZero:true }
+  };
+}
+function bLeg() {
+  return { labels:{color:"#e2eeff",font:{family:"'Outfit'",size:11},usePointStyle:true,pointStyleWidth:8} };
+}
+
+function initCharts() {
+
+  evolChart = new Chart(document.getElementById("evolChart"), {
+    type:"bar",
+    data:{ labels:[], datasets:[{
+      label:"Veículos", data:[],
+      backgroundColor:"rgba(0,212,255,.18)", borderColor:"#00d4ff",
+      borderWidth:1.5, borderRadius:4, hoverBackgroundColor:"rgba(0,212,255,.38)"
+    }]},
+    options:{
+      responsive:true,
+      plugins:{ legend:bLeg(), tooltip:{callbacks:{label:c=>` ${Math.round(c.parsed.y).toLocaleString("pt-BR")} veíc`}} },
+      scales: bScales()
+    }
+  });
+
+  picosChart = new Chart(document.getElementById("picosChart"), {
+    type:"line",
+    data:{ labels:[], datasets:[
+      { label:"Pico/dia", data:[], borderColor:"#10d47e", backgroundColor:"rgba(16,212,126,.08)",
+        borderWidth:2.5, tension:.35, fill:true,
+        pointRadius:4, pointHoverRadius:7, pointBackgroundColor:"#10d47e",
+        pointBorderColor:"#05090f", pointBorderWidth:2 },
+      { label:"Média/dia", data:[], borderColor:"rgba(245,158,11,.65)", backgroundColor:"transparent",
+        borderWidth:1.5, tension:.35, borderDash:[4,4], pointRadius:0 }
+    ]},
+    options:{
+      responsive:true,
+      plugins:{ legend:bLeg(), tooltip:{mode:"index",intersect:false,
+        callbacks:{label:c=>` ${Math.round(c.parsed.y).toLocaleString("pt-BR")} veíc/h`}}},
+      scales: bScales()
+    }
+  });
+
+  heatChart = new Chart(document.getElementById("heatChart"), {
+    type:"bar",
+    data:{ labels:[], datasets:[{
+      label:"Veículos/h", data:[],
+      backgroundColor: ctx => {
+        const d = ctx.dataset.data;
+        const mx = Math.max(...d.map(v=>+v||0), 1);
+        const v  = +d[ctx.dataIndex]||0;
+        const r  = v/mx;
+        return `rgba(${Math.round(255*r)},${Math.round(150*(1-r))},${Math.round(255*(1-r))},.72)`;
+      },
+      borderColor:"rgba(0,212,255,.1)", borderWidth:1, borderRadius:3
+    }]},
+    options:{
+      responsive:true,
+      plugins:{ legend:bLeg(), tooltip:{callbacks:{label:c=>` ${Math.round(c.parsed.y).toLocaleString("pt-BR")} veíc`}}},
+      scales:{
+        x:{ ticks:{color:tC,font:{family:"'JetBrains Mono'",size:10}}, grid:{color:gC},
+            title:{display:true,text:"Hora do dia",color:tC,font:{size:10}} },
+        y:{ ticks:{color:tC,font:{family:"'JetBrains Mono'",size:10},
+              callback:v=>Number.isInteger(v)?v.toLocaleString("pt-BR"):null},
+            grid:{color:gC}, beginAtZero:true,
+            title:{display:true,text:"Veículos",color:tC,font:{size:10}} }
+      }
+    }
+  });
+
+  distChart = new Chart(document.getElementById("distChart"), {
+    type:"doughnut",
+    data:{ labels:["Passeio","Motos","Comercial"], datasets:[{
+      data:[0,0,0],
+      backgroundColor:["rgba(91,155,255,.8)","rgba(245,158,11,.8)","rgba(139,92,246,.8)"],
+      borderColor:["#5b9bff","#f59e0b","#8b5cf6"],
+      borderWidth:1.5, hoverOffset:7
+    }]},
+    options:{
+      responsive:true, cutout:"66%",
+      plugins:{
+        legend:{ ...bLeg(), position:"bottom" },
+        tooltip:{callbacks:{label:c=>{
+          const total = c.dataset.data.reduce((a,b)=>a+b,1);
+          return ` ${c.label}: ${c.parsed.toLocaleString("pt-BR")} (${Math.round(c.parsed/total*100)}%)`;
+        }}}
+      }
+    }
+  });
+}
+
+// ── URL BUILDER ───────────────────────────────────────────────
+function buildUrl(path, params) {
+  const u = new URL(API + path);
+  Object.entries(params).forEach(([k,v]) => { if (v != null && v !== "" && v !== "all") u.searchParams.set(k, v); });
+  return u.toString();
+}
+
+// ── PARSE AGREGADO ────────────────────────────────────────────
+// A API retorna: [{periodo, Carros, Motos, Caminhões, Ônibus, total}]
+// Precisamos somar os campos de categoria corretos conforme filtro
+function somarGrupo(row, catFinal, sentFinal) {
+  // sentFinal não existe no agregado (API não segrega ida/volta no agregado)
+  // usamos total se "all", ou somamos os campos da API do grupo
+  if (catFinal === "all") return row.total || 0;
+  const nomes = CAT_API_NAMES[catFinal] || [];
+  return nomes.reduce((acc, nome) => acc + (row[nome] || 0), 0);
+}
+
+// ── CARREGADORES ──────────────────────────────────────────────
+async function carregarEvolucao() {
+  setLoad("ov-evol",true);
+  try {
+    const {inicio, fim} = cardRange("evol");
+    const granRaw = cval("evol-gran");
+    const cat     = cval("evol-cat");
+    const sentido = cval("evol-sentido");
+    const gCat    = cval("gCat");
+    const gSent   = cval("gSentido");
+
+    const catFinal  = cat     !== "all" ? cat     : gCat  !== "all" ? gCat  : "all";
+    const sentFinal = sentido !== "all" ? sentido : gSent !== "all" ? gSent : "all";
+    const gran      = GRAN_MAP[granRaw] || "dia";
+
+    // API filtra categoria por nome da API (um de cada vez); para grupos compostos (comercial)
+    // não enviamos filtro de categoria na URL — filtramos no cliente
+    const url = buildUrl("/api/historico/agregado", {
+      inicio,
+      fim,
+      granularidade: gran
+      // categoria: não enviamos — filtramos client-side para suportar grupos compostos
+    });
+
+    const res  = await fetch(url);
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+
+    const labels = [], vals = [];
+    data.forEach(d => {
+      labels.push(d.periodo);
+      vals.push(Math.round(somarGrupo(d, catFinal, sentFinal)));
+    });
+
+    evolChart.data.labels = labels;
+    evolChart.data.datasets[0].data = vals;
+    evolChart.update("active");
+
+    document.getElementById("evol-info").textContent =
+      `${rangeLabel("evol")} · ${catFinal==="all"?"Todas categ.":CAT_LABELS[catFinal]} · ${sentFinal==="all"?"Todos sentidos":sentFinal}`;
+  } catch(e) { toast("⚠ Evolução indisponível: "+e.message); }
+  finally    { setLoad("ov-evol",false); }
+}
+
+async function carregarPicos() {
+  setLoad("ov-picos",true);
+  try {
+    const {inicio, fim} = cardRange("picos");
+    const cat    = cval("picos-cat");
+    const gCat   = cval("gCat");
+    const catFinal = cat !== "all" ? cat : gCat !== "all" ? gCat : "all";
+
+    // sempre por hora para calcular pico diário
+    const url = buildUrl("/api/historico/agregado", { inicio, fim, granularidade:"hora" });
+    const res  = await fetch(url);
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+
+    // Agrupa por dia → pico = hora com mais veículos
+    const diasMap = {};
+    data.forEach(d => {
+      // período retornado: "2026-03-01 09:00" (granularidade hora) ou "2026-03-01" (dia)
+      const dia = (d.periodo || "").slice(0, 10);
+      const v   = somarGrupo(d, catFinal, "all");
+      if (!diasMap[dia]) diasMap[dia] = [];
+      diasMap[dia].push(Math.round(v));
+    });
+
+    const dias   = Object.keys(diasMap).sort();
+    const picos  = dias.map(d => Math.max(...diasMap[d]));
+    const medias = dias.map(d => { const a = diasMap[d]; return Math.round(a.reduce((s,v)=>s+v,0)/a.length); });
+
+    picosChart.data.labels = dias;
+    picosChart.data.datasets[0].data = picos;
+    picosChart.data.datasets[1].data = medias;
+    picosChart.update("active");
+
+    document.getElementById("picos-info").textContent =
+      `${rangeLabel("picos")} · ${catFinal==="all"?"Todas categ.":CAT_LABELS[catFinal]}`;
+  } catch(e) { toast("⚠ Picos indisponível: "+e.message); }
+  finally    { setLoad("ov-picos",false); }
+}
+
+async function carregarHeatmap() {
+  setLoad("ov-heat",true);
+  try {
+    const {inicio, fim} = cardRange("heat");
+    const cat     = cval("heat-cat");
+    const sentido = cval("heat-sentido");
+    const gCat    = cval("gCat");
+    const gSent   = cval("gSentido");
+    const catFinal  = cat     !== "all" ? cat     : gCat  !== "all" ? gCat  : "all";
+    const sentFinal = sentido !== "all" ? sentido : gSent !== "all" ? gSent : "all";
+
+    // Para o heatmap usamos /filtrado para ter timestamp exato por evento
+    // Categoria na URL só quando é 1:1 com grupo (moto → "Motos")
+    const catApiParam = CAT_API_NAMES[catFinal]?.length === 1 ? CAT_API_NAMES[catFinal][0] : null;
+    const sentApiParam = sentFinal !== "all" ? sentFinal : null;
+
+    const url = buildUrl("/api/historico/filtrado", {
+      inicio, fim,
+      categoria: catApiParam,
+      sentido:   sentApiParam,
+      limite:    10000
+    });
+
+    const res  = await fetch(url);
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    cachedRaw = data;
+
+    // Filtragem client-side para grupos compostos (comercial = Caminhões + Ônibus)
+    const counts = new Array(24).fill(0);
+    data.forEach(e => {
+      if (catFinal !== "all" && mapCat(e.categoria) !== catFinal) return;
+      if (sentFinal !== "all" && e.sentido !== sentFinal) return;
+      // timestamp vem como "YYYY-MM-DD HH:MM:SS"
+      const h = parseInt((e.timestamp || "").split(" ")[1]?.split(":")[0] || "0", 10);
+      if (h >= 0 && h < 24) counts[h]++;
+    });
+
+    heatChart.data.labels = Array.from({length:24}, (_,i) => `${String(i).padStart(2,"0")}h`);
+    heatChart.data.datasets[0].data = counts;
+    heatChart.update("active");
+
+    const picoH = counts.indexOf(Math.max(...counts));
+    document.getElementById("heat-info").textContent =
+      `${rangeLabel("heat")} · Pico: ${String(picoH).padStart(2,"0")}h (${Math.max(...counts).toLocaleString("pt-BR")} veíc)`;
+  } catch(e) { toast("⚠ Heatmap indisponível: "+e.message); }
+  finally    { setLoad("ov-heat",false); }
+}
+
+async function carregarDist() {
+  setLoad("ov-dist",true);
+  try {
+    const {inicio, fim} = cardRange("dist");
+    const sentido = cval("dist-sentido");
+    const gSent   = cval("gSentido");
+    const sentFinal = sentido !== "all" ? sentido : gSent !== "all" ? gSent : "all";
+
+    const sentApiParam = sentFinal !== "all" ? sentFinal : null;
+
+    const url = buildUrl("/api/historico/filtrado", {
+      inicio, fim,
+      sentido: sentApiParam,
+      limite:  10000
+    });
+
+    const res  = await fetch(url);
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+
+    const acc = { passeio:0, moto:0, comercial:0 };
+    data.forEach(e => {
+      if (sentFinal !== "all" && e.sentido !== sentFinal) return;
+      acc[mapCat(e.categoria)]++;
+    });
+
+    distChart.data.datasets[0].data = [acc.passeio, acc.moto, acc.comercial];
+    distChart.update("active");
+
+    const total = acc.passeio + acc.moto + acc.comercial || 1;
+    document.getElementById("dist-info").textContent =
+      `${rangeLabel("dist")} · P:${Math.round(acc.passeio/total*100)}% M:${Math.round(acc.moto/total*100)}% C:${Math.round(acc.comercial/total*100)}%`;
+  } catch(e) { toast("⚠ Distribuição indisponível: "+e.message); }
+  finally    { setLoad("ov-dist",false); }
+}
+
+async function carregarTudo() {
+  await Promise.all([carregarEvolucao(), carregarPicos(), carregarHeatmap(), carregarDist()]);
+}
+
+// ── FILTRO GLOBAL ─────────────────────────────────────────────
+const _periodMap = {"5":"5 min","10":"10 min","15":"15 min","30":"30 min",
+  "60":"1h","120":"2h","360":"6h","720":"12h",
+  "1440":"1 dia","4320":"3 dias","10080":"7 dias","20160":"14 dias","43200":"30 dias"};
+
+function onGPeriodo() {
+  const v = document.getElementById("gPeriodo").value;
+  document.getElementById("kpi-rng").textContent = v==="custom" ? "Personalizado" : (_periodMap[v]||"");
+  // Preenche os campos datetime com os limites do predefinido
+  if (v !== "custom") {
+    const now = new Date();
+    const ini = new Date(now - parseInt(v)*6e4);
+    document.getElementById("gDtIni").value = ini.toISOString().slice(0,16);
+    document.getElementById("gDtFim").value = now.toISOString().slice(0,16);
+  }
+  aplicarGlobal();
+}
+
+// Usuário editou manualmente um datetime → muda select para "Personalizado"
+function onGDateChange() {
+  document.getElementById("gPeriodo").value = "custom";
+  document.getElementById("kpi-rng").textContent = "Personalizado";
+}
+
+async function aplicarGlobal() {
+  await atualizarKPIs();
+  // Só recarrega os charts que estão herdando o filtro global (período = "__global__")
+  const loaders = { evol: carregarEvolucao, picos: carregarPicos, heat: carregarHeatmap, dist: carregarDist };
+  await Promise.all(Object.entries(loaders).map(([key, fn]) => {
+    const el = document.getElementById(key+"-periodo");
+    return (!el || el.value === "__global__") ? fn() : Promise.resolve();
+  }));
+}
+
+async function atualizarKPIs() {
+  try {
+    const {inicio, fim} = globalRange();
+    const gCat  = cval("gCat");
+    const gSent = cval("gSentido");
+
+    // Usa /filtrado para ter controle total de categoria composta e sentido
+    const catApiParam  = gCat  !== "all" && CAT_API_NAMES[gCat]?.length === 1 ? CAT_API_NAMES[gCat][0] : null;
+    const sentApiParam = gSent !== "all" ? gSent : null;
+
+    const url = buildUrl("/api/historico/filtrado", {
+      inicio, fim,
+      categoria: catApiParam,
+      sentido:   sentApiParam,
+      limite:    10000
+    });
+
+    const res  = await fetch(url);
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    cachedRaw = data;
+
+    const acc = {
+      passeio:  {ida:0,volta:0},
+      moto:     {ida:0,volta:0},
+      comercial:{ida:0,volta:0}
+    };
+    let tIda = 0, tVolta = 0;
+
+    data.forEach(e => {
+      const grp = mapCat(e.categoria);
+      // filtragem client-side para grupos compostos
+      if (gCat !== "all" && grp !== gCat) return;
+      if (gSent !== "all" && e.sentido !== gSent) return;
+      if (e.sentido === "ida")   { acc[grp].ida++;   tIda++;   }
+      else                       { acc[grp].volta++;  tVolta++; }
+    });
+
+    animNum("t-geral",       tIda + tVolta);
+    animNum("t-geral-ida",   tIda);
+    animNum("t-geral-volta", tVolta);
+
+    Object.entries(acc).forEach(([grp, v]) => {
+      animNum("t-"+grp, v.ida + v.volta);
+      const eI = document.getElementById("ida-"+grp);
+      const eV = document.getElementById("volta-"+grp);
+      if (eI) eI.textContent = "↑ " + v.ida.toLocaleString("pt-BR");
+      if (eV) eV.textContent = "↓ " + v.volta.toLocaleString("pt-BR");
+    });
+  } catch(e) { toast("⚠ Erro ao atualizar KPIs: "+e.message); }
+}
+
+// ── WEBSOCKET ─────────────────────────────────────────────────
+function setWS(online, lbl) {
+  const p = document.getElementById("wsPill");
+  p.className = "ws-pill " + (online?"online":"offline");
+  document.getElementById("wsLabel").textContent = lbl;
+}
+
+function conectar() {
+  setWS(false,"Conectando...");
+  try { ws = new WebSocket(WS_URL); } catch { setWS(false,"Erro"); setTimeout(conectar,5000); return; }
+  ws.onopen  = () => { setWS(true,"Ao Vivo"); toast("✔ Conectado"); clearTimeout(reconnTimer);
+    setInterval(() => ws.readyState===1 && ws.send("ping"), 20000); };
+  ws.onmessage = e => {
+    try { const m = JSON.parse(e.data); if(m.tipo==="contadores") { aplicarGlobal(); } } catch {}
+  };
+  ws.onclose = () => { setWS(false,"Desconectado"); reconnTimer = setTimeout(conectar,3000); };
+  ws.onerror = () => setWS(false,"Erro");
+}
+
+// ── EXPORT HELPERS ────────────────────────────────────────────
+function toggleExp() { document.getElementById("expMenu").classList.toggle("open"); }
+document.addEventListener("click", e => {
+  if (!e.target.closest(".exp-wrap")) document.getElementById("expMenu").classList.remove("open");
+});
+
+async function getRaw() {
+  if (cachedRaw.length) return cachedRaw;
+  const {inicio, fim} = globalRange();
+  const url = buildUrl("/api/historico/filtrado", { inicio, fim, limite: 10000 });
+  const res = await fetch(url);
+  const data = await res.json();
+  cachedRaw = data;
+  return data;
+}
+
+function dlBlob(blob, name) {
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click();
+}
+
+async function exportExcel(modo) {
+  toast("⏳ Gerando..."); document.getElementById("expMenu").classList.remove("open");
+  try {
+    let data = await getRaw();
+    // Enriquecer com grupo legível
+    data = data.map(d => ({
+      ...d,
+      grupo: CAT_LABELS[mapCat(d.categoria)] || d.categoria
+    }));
+
+    let sheet;
+    if (modo === "agregado") {
+      const acc = {};
+      data.forEach(d => {
+        const dia = (d.timestamp||"").slice(0,10);
+        if (!acc[dia]) acc[dia] = {data:dia, total:0, passeio:0, moto:0, comercial:0};
+        acc[dia].total++;
+        acc[dia][mapCat(d.categoria)]++;
+      });
+      sheet = XLSX.utils.json_to_sheet(Object.values(acc));
+    } else if (modo === "heatmap") {
+      const mat = {};
+      data.forEach(d => {
+        const dia = (d.timestamp||"").slice(0,10);
+        const h   = String(parseInt((d.timestamp||"").split(" ")[1]||"0")).padStart(2,"0")+"h";
+        if (!mat[dia]) mat[dia] = {data:dia};
+        mat[dia][h] = (mat[dia][h]||0) + 1;
+      });
+      sheet = XLSX.utils.json_to_sheet(Object.values(mat));
+    } else {
+      sheet = XLSX.utils.json_to_sheet(data);
+    }
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, sheet, "Dados");
+    XLSX.writeFile(wb, `sysmonit_${modo}.xlsx`);
+    toast("✔ Excel exportado!");
+  } catch(e) { toast("⚠ Erro ao exportar: "+e.message); }
+}
+
+function exportPDF() {
+  document.getElementById("expMenu").classList.remove("open");
+  const {jsPDF} = window.jspdf; const doc = new jsPDF();
+  doc.setFillColor(5,9,15); doc.rect(0,0,210,297,"F");
+  doc.setTextColor(0,212,255); doc.setFontSize(22); doc.setFont("helvetica","bold");
+  doc.text("SysMonit",20,22);
+  doc.setTextColor(226,238,255); doc.setFontSize(13); doc.setFont("helvetica","normal");
+  doc.text("Relatório de Monitoramento Veicular",20,31);
+  doc.setFontSize(10); doc.setTextColor(61,90,122);
+  const rng = document.getElementById("gPeriodo").selectedOptions[0]?.text||"";
+  doc.text(`Período: ${rng}   Gerado: ${new Date().toLocaleString("pt-BR")}`,20,40);
+  doc.setDrawColor(28,48,77); doc.line(20,44,190,44);
+  const rows=[
+    ["Total Geral",   document.getElementById("t-geral").textContent,
+                      "Ida: "+document.getElementById("t-geral-ida").textContent+"  Volta: "+document.getElementById("t-geral-volta").textContent],
+    ["Passeio",       document.getElementById("t-passeio").textContent,
+                      document.getElementById("ida-passeio").textContent+" / "+document.getElementById("volta-passeio").textContent],
+    ["Motos",         document.getElementById("t-moto").textContent,
+                      document.getElementById("ida-moto").textContent+" / "+document.getElementById("volta-moto").textContent],
+    ["Comercial",     document.getElementById("t-comercial").textContent,
+                      document.getElementById("ida-comercial").textContent+" / "+document.getElementById("volta-comercial").textContent],
+  ];
+  let y=56;
+  rows.forEach(([l,v,s])=>{
+    doc.setTextColor(61,90,122); doc.setFontSize(9); doc.setFont("helvetica","normal"); doc.text(l,20,y);
+    doc.setTextColor(226,238,255); doc.setFontSize(15); doc.setFont("helvetica","bold"); doc.text(v,72,y);
+    doc.setTextColor(61,90,122); doc.setFontSize(9); doc.setFont("helvetica","normal"); doc.text(s||"",130,y);
+    y+=13;
+  });
+  doc.save("sysmonit_relatorio.pdf"); toast("✔ PDF exportado!");
+}
+
+function abrirModal() {
+  document.getElementById("expMenu").classList.remove("open");
+  const {inicio,fim}=globalRange();
+  document.getElementById("exp-ini").value=inicio;
+  document.getElementById("exp-fim").value=fim;
+  document.getElementById("modalBg").classList.add("open");
+}
+function fecharModal(e) {
+  if(e.target===document.getElementById("modalBg"))
+    document.getElementById("modalBg").classList.remove("open");
+}
+
+async function exportPersonalizado() {
+  toast("⏳ Processando...");
+  try {
+    const ini   = document.getElementById("exp-ini").value;
+    const fim   = document.getElementById("exp-fim").value;
+    const cat   = document.getElementById("exp-cat").value;
+    const sent  = document.getElementById("exp-sentido").value;
+    const grp   = document.getElementById("exp-grp").value;
+    const lim   = parseInt(document.getElementById("exp-lim").value) || 10000;
+    const fmt   = document.getElementById("exp-fmt").value;
+    const cols  = [...document.querySelectorAll("#cbGrid input:checked")].map(i => i.value);
+
+    const catApiParam  = cat  !== "all" && CAT_API_NAMES[cat]?.length === 1 ? CAT_API_NAMES[cat][0] : null;
+    const sentApiParam = sent !== "all" ? sent : null;
+
+    const url = buildUrl("/api/historico/filtrado", {
+      inicio: ini, fim,
+      categoria: catApiParam,
+      sentido:   sentApiParam,
+      limite:    Math.min(lim, 10000)
+    });
+    const res  = await fetch(url);
+    let data   = await res.json();
+
+    if (cat  !== "all") data = data.filter(d => mapCat(d.categoria) === cat);
+    if (sent !== "all") data = data.filter(d => d.sentido === sent);
+
+    if (grp !== "none") {
+      const acc = {};
+      data.forEach(d => {
+        const k = grp === "hour"     ? (d.timestamp||"").slice(0,13).replace(" ","T")
+                : grp === "day"      ? (d.timestamp||"").slice(0,10)
+                :                      (CAT_LABELS[mapCat(d.categoria)] || d.categoria);
+        acc[k] = (acc[k]||0) + 1;
+      });
+      data = Object.entries(acc).map(([k,v]) => ({periodo:k, total:v}));
+    } else {
+      data = data.map(d => Object.fromEntries(cols.map(c => [c, d[c]])));
+    }
+
+    if (fmt === "json") {
+      dlBlob(new Blob([JSON.stringify(data, null, 2)], {type:"application/json"}), "sysmonit_export.json");
+    } else if (fmt === "csv") {
+      const ws2=XLSX.utils.json_to_sheet(data);
+      dlBlob(new Blob([XLSX.utils.sheet_to_csv(ws2)],{type:"text/csv"}),"sysmonit_export.csv");
+    } else if (fmt==="pdf") {
+      exportPDF();
+    } else {
+      const ws2=XLSX.utils.json_to_sheet(data);
+      const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws2,"Exportação");
+      XLSX.writeFile(wb,"sysmonit_export.xlsx");
+    }
+    document.getElementById("modalBg").classList.remove("open");
+    toast("✔ Exportação concluída!");
+  } catch { toast("⚠ Erro na exportação"); }
+}
+
+// checkbox style
+document.querySelectorAll(".cbi input").forEach(cb => {
+  cb.addEventListener("change", () => cb.closest(".cbi").classList.toggle("on", cb.checked));
+});
+
+// ── BOOT ──────────────────────────────────────────────────────
+// Pré-preenche os datetime globais com o intervalo padrão (7 dias)
+(function initGlobalDatetime() {
+  const now = new Date();
+  const ini = new Date(now - 10080*6e4);
+  document.getElementById("gDtIni").value = ini.toISOString().slice(0,16);
+  document.getElementById("gDtFim").value = now.toISOString().slice(0,16);
+})();
+
+initCharts();
+atualizarKPIs();
+carregarTudo();
+conectar();
+</script>
+</body>
+</html>
